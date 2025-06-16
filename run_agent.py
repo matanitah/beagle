@@ -8,7 +8,7 @@ def main():
     
     # Initialize the agent
     agent = SelfImprovingAgent(
-        benchmark_path='cypher_bench.json',
+        benchmark_path='benchmarks/cypher_bench.json',
         db_uri=os.getenv('NEO4J_URI'),
         db_user=os.getenv('NEO4J_USERNAME'),
         db_password=os.getenv('NEO4J_PASSWORD')
@@ -16,17 +16,8 @@ def main():
     
     try:
         # Run improvement process
-        agent.improve(generations=20)
-        
-        # Print final workflow
-        print("\nFinal Workflow:")
-        for stage in agent.workflow.stages:
-            print(f"\nStage: {stage.name}")
-            print(f"Type: {stage.type.value}")
-            print(f"Prompt Template: {stage.prompt_template}")
-            print(f"Priority: {stage.priority}")
-            print(f"Active: {stage.is_active}")
-            
+        agent.improve(generations=2)
+                    
     finally:
         agent.close()
 

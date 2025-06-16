@@ -1,12 +1,12 @@
-# Self-Improving Cypher Query Agent
+# Beagle
 
-This project implements a self-improving agent that optimizes Cypher queries using a Darwinian approach. The agent continuously evolves and improves its query performance based on execution time and correctness.
+This project implements a self-improving Cypher query generating that optimizes Cypher queries using a Darwinian approach. Given a benchmark of question-answer pairs, and a knowledge graph, the agent will iterate on its own internal workflow to optimize for the best agentic cypher generation performance. This project was inspired by Darwinian Godel Machines, see the paper here: https://arxiv.org/abs/2505.22954
 
 ## Features
 
-- Loads and evaluates Cypher queries from a benchmark
-- Applies various mutations to optimize queries
-- Only keeps improvements that show better performance
+- Loads question and answer pairs from a benchmark in the benchmarks folder
+- Applies workflow mutations to optimize methods to answer
+- Only keeps improvements that show better pass@1 performance (i.e. only changes which lead to a greater proportion of cypher queries being generated returning the same results as the ground truth queries are kept)
 - Saves and loads state to continue improvement over time
 - Uses Neo4j database for query evaluation
 

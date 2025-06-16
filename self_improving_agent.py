@@ -1,153 +1,239 @@
 import json
-import time
-from typing import Dict, List, Any
 from neo4j import GraphDatabase
-from agent_workflow import AgentWorkflow, WorkflowStage, StageType
-import os
-from dotenv import load_dotenv
-from tqdm import tqdm
+from typing import List, Dict, Optional, TypedDict
+from langgraph.graph import StateGraph, END
+from langchain_ollama import ChatOllama
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_neo4j import Neo4jGraph
+import re
+
+class AgentState(TypedDict):
+    question: str
+    schema: str
+    generated_query: str
+    ground_truth_query: str
+    performance: float
 
 class SelfImprovingAgent:
-    def __init__(self, benchmark_path: str, db_uri: str = None, db_user: str = None, db_password: str = None):
-        """Initialize the self-improving agent."""
-        self.benchmark = self._load_benchmark(benchmark_path)
-        self.workflow = AgentWorkflow()
-        self.best_performance = 0.0
-        self.generation = 0
-        
-        # Load database credentials
-        load_dotenv()
-        self.db_uri = db_uri or os.getenv('NEO4J_URI')
-        self.db_user = db_user or os.getenv('NEO4J_USERNAME')
-        self.db_password = db_password or os.getenv('NEO4J_PASSWORD')
-        
-        if not all([self.db_uri, self.db_user, self.db_password]):
-            raise ValueError("Database credentials must be provided either directly or through environment variables")
-        
+    def __init__(self, benchmark_path, db_uri, db_user, db_password):
+        self.benchmark_path = benchmark_path
+        self.db_uri = db_uri
+        self.db_user = db_user
+        self.db_password = db_password
         self.driver = GraphDatabase.driver(self.db_uri, auth=(self.db_user, self.db_password))
-
-    def _load_benchmark(self, path: str) -> List[Dict]:
-        """Load the benchmark data from JSON file."""
-        with open(path, 'r') as f:
-            return json.load(f)
-
-    def _execute_workflow(self, query: str) -> Dict[str, Any]:
-        """Execute the current workflow on a query."""
-        current_query = query
-        results = {}
+        self.graph = Neo4jGraph()
+        self.schema = self.graph.schema
         
-        # Execute each stage in order of priority
-        for stage in sorted(self.workflow.stages, key=lambda x: x.priority):
-            if not stage.is_active:
-                continue
-                
-            # Format the prompt with the current query
-            prompt = stage.prompt_template.format(query=current_query)
-            
-            # Execute the stage's function
-            result = stage.function(current_query)
-            
-            # Update the query if the stage returns a new one
-            if isinstance(result, str):
-                current_query = result
-                
-            results[stage.name] = result
-            
-        return results
-
-    def _evaluate_workflow(self) -> float:
-        """Evaluate the current workflow on the benchmark."""
-        total_score = 0.0
+        self.best_performance = 0.0
+        self.current_queries = {}
         
-        for item in self.benchmark:
-            query = item['cypher']
-            
-            try:
-                # Execute the workflow
-                start_time = time.time()
-                workflow_results = self._execute_workflow(query)
-                execution_time = time.time() - start_time
-                
-                # Calculate score based on execution time and correctness
-                score = 1.0 / (execution_time + 1e-6)
-                total_score += score
-                
-            except Exception as e:
-                print(f"Error evaluating query: {e}")
-                continue
-                
-        return total_score / len(self.benchmark)
+        self.llm = ChatOllama(model="mistral")
+        self.prompt_template = ChatPromptTemplate.from_messages([
+            ("system", """You are a Cypher query expert. Generate a valid Cypher query to answer the question.
 
-    def improve(self, generations: int = 10):
-        """Run the self-improvement process for a specified number of generations."""
-        for generation in tqdm(range(generations), desc="Improving agent"):
-            self.generation = generation
-            
-            # Create a mutated version of the workflow
-            mutated_workflow = self.workflow.mutate_workflow()
-            
-            # Evaluate both workflows
-            current_score = self._evaluate_workflow()
-            self.workflow = mutated_workflow
-            mutated_score = self._evaluate_workflow()
-            
-            # Keep the better performing workflow
-            if mutated_score > current_score:
-                self.best_performance = mutated_score
-                print(f"\nGeneration {generation}: Improved workflow")
-                print(f"New score: {mutated_score:.4f} (was {current_score:.4f})")
-                print("Current workflow stages:")
-                for stage in self.workflow.stages:
-                    print(f"- {stage.name} (Priority: {stage.priority})")
+Database Schema:
+{schema}
+
+Rules:
+1. Return ONLY the Cypher query, nothing else
+2. Do not include explanations, comments, or markdown
+3. Ensure the query is syntactically correct
+4. Use proper Cypher syntax with MATCH, WHERE, RETURN clauses
+5. Do not add any text before or after the query
+
+Examples:
+Question: How many patients are there?
+MATCH (p:Patient) RETURN count(p) as count
+
+Question: What are the names of all providers?
+MATCH (pr:Provider) RETURN pr.provider_name"""),
+            ("user", "Question: {question}")
+        ])
+        
+        # Create workflow
+        self.workflow = self._create_workflow()
+
+    def _create_workflow(self) -> StateGraph:
+        """Create a simple workflow with just query generation and evaluation."""
+        workflow = StateGraph(AgentState)
+        
+        # Single node for query generation
+        workflow.add_node("generate_query", self._generate_query)
+        workflow.add_node("evaluate_query", self._evaluate_query)
+        
+        # Simple linear flow
+        workflow.add_edge("generate_query", "evaluate_query")
+        workflow.add_edge("evaluate_query", END)
+        
+        workflow.set_entry_point("generate_query")
+        
+        return workflow.compile()
+
+    def _generate_query(self, state: AgentState) -> AgentState:
+        """Generate a Cypher query using the simple prompt template."""
+        try:
+            messages = self.prompt_template.format_messages(
+                schema=state["schema"],
+                question=state["question"]
+            )
+            response = self.llm.invoke(messages)
+            state["generated_query"] = self._clean_query(response.content)
+            print(f"Generated: {state['generated_query']}")
+        except Exception as e:
+            print(f"Error generating query: {e}")
+            state["generated_query"] = ""
+        return state
+
+    def _evaluate_query(self, state: AgentState) -> AgentState:
+        """Evaluate the generated query against ground truth."""
+        try:
+            if self._compare_results(state["generated_query"], state["ground_truth_query"]):
+                state["performance"] = 1.0
+                print("✓ Query matches ground truth")
             else:
-                # Revert to the previous workflow
-                self.workflow = mutated_workflow
-                
-            # Save the current state
-            self.save_state(f"states/agent_state_gen_{generation}.json")
+                state["performance"] = 0.0
+                print("✗ Query does not match ground truth")
+                print(f"Generated: {state['generated_query']}")
+                print(f"Expected: {state['ground_truth_query']}")
+        except Exception as e:
+            print(f"Error evaluating query: {e}")
+            state["performance"] = 0.0
+        return state
 
-    def save_state(self, path: str):
-        """Save the current state of the agent."""
-        state = {
-            "generation": self.generation,
-            "best_performance": self.best_performance,
-            "workflow": {
-                "stages": [
-                    {
-                        "name": stage.name,
-                        "type": stage.type.value,
-                        "prompt_template": stage.prompt_template,
-                        "is_active": stage.is_active,
-                        "priority": stage.priority
-                    }
-                    for stage in self.workflow.stages
-                ]
-            }
-        }
-        with open(path, 'w') as f:
-            json.dump(state, f, indent=2)
+    def _clean_query(self, query: str) -> str:
+        """Clean the query by removing markdown formatting and extra text."""
+        # Remove markdown code blocks
+        query = re.sub(r'```cypher\n?', '', query)
+        query = re.sub(r'```\n?', '', query)
+        
+        # Split by lines and find the actual query
+        lines = query.strip().split('\n')
+        query_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            # Skip empty lines and explanatory text
+            if not line:
+                continue
+            # Look for lines that start with Cypher keywords
+            if any(line.upper().startswith(keyword) for keyword in 
+                   ['MATCH', 'CREATE', 'MERGE', 'WITH', 'CALL', 'RETURN', 'WHERE', 'ORDER', 'LIMIT', 'SKIP']):
+                query_lines.append(line)
+            # If we already have query lines, stop at explanatory text
+            elif query_lines and any(word in line.lower() for word in 
+                                   ['this query', 'will return', 'explanation', 'note:']):
+                break
+            # Continue building the query if it looks like a continuation
+            elif query_lines and (line.startswith('WHERE') or line.startswith('RETURN') or 
+                                line.startswith('ORDER') or line.startswith('LIMIT')):
+                query_lines.append(line)
+        
+        # Join the query lines
+        cleaned_query = ' '.join(query_lines) if query_lines else query.strip()
+        
+        # Remove any trailing explanatory text
+        if 'This query' in cleaned_query:
+            cleaned_query = cleaned_query.split('This query')[0].strip()
+        
+        return cleaned_query
 
-    def load_state(self, path: str):
-        """Load a previously saved state."""
-        with open(path, 'r') as f:
-            state = json.load(f)
-            self.generation = state["generation"]
-            self.best_performance = state["best_performance"]
+    def _execute_query(self, query: str) -> List[Dict]:
+        """Execute a Cypher query and return results."""
+        if not query.strip():
+            return []
+        try:
+            results = self.graph.query(query)
+            return results
+        except Exception as e:
+            print(f"Error executing query '{query}': {e}")
+            return []
+
+    def _compare_results(self, query1: str, query2: str) -> bool:
+        """Compare results of two queries."""
+        if not query1 or not query2:
+            return False
+        
+        results1 = self._execute_query(query1)
+        results2 = self._execute_query(query2)
+        
+        # Handle empty results
+        if not results1 and not results2:
+            return True
+        if not results1 or not results2:
+            return False
             
-            # Reconstruct the workflow
-            self.workflow = AgentWorkflow()
-            self.workflow.stages = [
-                WorkflowStage(
-                    name=stage["name"],
-                    type=StageType(stage["type"]),
-                    prompt_template=stage["prompt_template"],
-                    function=getattr(self.workflow, f"_{stage['name'].lower().replace(' ', '_')}"),
-                    is_active=stage["is_active"],
-                    priority=stage["priority"]
-                )
-                for stage in state["workflow"]["stages"]
-            ]
+        return results1 == results2
+
+    def run_benchmark(self, max_questions: int = None):
+        """Run the agent on the benchmark questions."""
+        # Load benchmark
+        with open(self.benchmark_path, 'r') as f:
+            benchmark = json.load(f)
+        
+        if max_questions:
+            benchmark = benchmark[:max_questions]
+        
+        total_correct = 0
+        total_questions = len(benchmark)
+        
+        print(f"Running benchmark on {total_questions} questions...")
+        
+        for i, qa_pair in enumerate(benchmark, 1):
+            print(f"\n--- Question {i}/{total_questions} ---")
+            print(f"Question: {qa_pair['question']}")
+            print(f"Ground truth: {qa_pair['answer']}")
+            
+            # Create state for this question
+            state = AgentState(
+                question=qa_pair["question"],
+                schema=self.schema,
+                generated_query="",
+                ground_truth_query=qa_pair["answer"],
+                performance=0.0
+            )
+            
+            # Run workflow
+            final_state = self.workflow.invoke(state)
+            
+            # Track performance
+            if final_state["performance"] == 1.0:
+                total_correct += 1
+                self.current_queries[qa_pair["question"]] = final_state["generated_query"]
+        
+        # Calculate overall performance
+        overall_performance = total_correct / total_questions
+        print(f"\n=== RESULTS ===")
+        print(f"Correct: {total_correct}/{total_questions}")
+        print(f"Performance: {overall_performance:.2%}")
+        
+        if overall_performance > self.best_performance:
+            self.best_performance = overall_performance
+            self._save_state()
+        
+        return overall_performance
+
+    def improve(self, generations=10):
+        """Run improvement iterations."""
+        for generation in range(generations):
+            print(f"\n=== Generation {generation + 1}/{generations} ===")
+            performance = self.run_benchmark(max_questions=5)  # Start with small subset
+            
+            # TODO: Add workflow mutation logic here
+            # For now, just track performance
+            
+        print(f"\nBest performance achieved: {self.best_performance:.2%}")
+
+    def _save_state(self):
+        """Save current state."""
+        state = {
+            "queries": self.current_queries,
+            "performance": self.best_performance,
+            "prompt_template": self.prompt_template.messages[0].prompt.template
+        }
+        with open("improved_queries.json", "w") as f:
+            json.dump(state, f, indent=2)
+        print("State saved to improved_queries.json")
 
     def close(self):
-        """Close the database connection."""
-        self.driver.close() 
+        """Close connections."""
+        self.driver.close()

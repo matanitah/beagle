@@ -3,3 +3,10 @@ numpy
 pandas
 tqdm
 python-dotenv
+textdistance
+ollama
+langgraph
+langchain
+langchain-community
+langchain-neo4j
+langchain-ollama

@@ -1,0 +1,402 @@
+[
+    {
+        "question": "How many patients are over 50 years old?",
+        "answer": "MATCH (p:Patient) WHERE p.patient_age > 50 RETURN count(p) as count"
+    },
+    {
+        "question": "Which patients have submitted claims amounting to more than $1000?",
+        "answer": "MATCH (p:Patient)-[:has_claim]->(c:Claim) WHERE c.claim_amount > 1000 RETURN DISTINCT p.patient_id, c.claim_amount"
+    },
+    {
+        "question": "What is the total claim amount for married patients?",
+        "answer": "MATCH (p:Patient)-[:has_claim]->(c:Claim) WHERE p.patient_marital_status = 'Married' RETURN sum(c.claim_amount) as total"
+    },
+    {
+        "question": "How many claims were submitted online in 2024?",
+        "answer": "MATCH (c:Claim) WHERE c.claim_submission_method = 'Online' AND c.claim_date STARTS WITH '2024' RETURN count(c) as count"
+    },
+    {
+        "question": "Which providers specialize in Cardiology?",
+        "answer": "MATCH (p:Provider) WHERE p.provider_specialty = 'Cardiology' RETURN p.provider_id, p.provider_location"
+    },
+    {
+        "question": "How many emergency claims were approved?",
+        "answer": "MATCH (c:Claim) WHERE c.claim_type = 'Emergency' AND c.claim_status = 'Approved' RETURN count(c) as count"
+    },
+    {
+        "question": "What are the most common diagnosis codes for patients under 30?",
+        "answer": "MATCH (p:Patient)-[:has_claim]->(c:Claim)-[:includes_diagnosis]->(d:Diagnosis) WHERE p.patient_age < 30 RETURN d.diagnosis_code, count(*) as frequency ORDER BY frequency DESC"
+    },
+    {
+        "question": "Which patients have both a diagnosis and a procedure in their claims?",
+        "answer": "MATCH (p:Patient)-[:has_claim]->(c:Claim)-[:includes_diagnosis]->(d:Diagnosis), (c)-[:includes_procedure]->(pr:Procedure) RETURN DISTINCT p.patient_id"
+    },
+    {
+        "question": "How many unemployed patients have claims pending?",
+        "answer": "MATCH (p:Patient)-[:has_claim]->(c:Claim) WHERE p.patient_employment_status = 'Unemployed' AND c.claim_status = 'Pending' RETURN count(DISTINCT p) as count"
+    },
+    {
+        "question": "What is the average claim amount for outpatient claims?",
+        "answer": "MATCH (c:Claim) WHERE c.claim_type = 'Outpatient' RETURN avg(c.claim_amount) as average"
+    },
+    {
+        "question": "Which providers have treated patients with an income over $100,000?",
+        "answer": "MATCH (p:Patient)-[:has_provider]->(pr:Provider) WHERE p.patient_income > 100000 RETURN DISTINCT pr.provider_id, pr.provider_specialty"
+    },
+    {
+        "question": "How many claims include a specific procedure code 'P123'?",
+        "answer": "MATCH (c:Claim)-[:includes_procedure]->(p:Procedure) WHERE p.procedure_code = 'P123' RETURN count(c) as count"
+    },
+    {
+        "question": "What is the gender distribution of patients with denied claims?",
+        "answer": "MATCH (p:Patient)-[:has_claim]->(c:Claim) WHERE c.claim_status = 'Denied' RETURN p.patient_gender, count(p) as count"
+    },
+    {
+        "question": "Which diagnosis codes are associated with inpatient claims?",
+        "answer": "MATCH (c:Claim)-[:includes_diagnosis]->(d:Diagnosis) WHERE c.claim_type = 'Inpatient' RETURN DISTINCT d.diagnosis_code"
+    },
+    {
+        "question": "How many patients have multiple claims?",
+        "answer": "MATCH (p:Patient)-[:has_claim]->(c:Claim) WITH p, count(c) as claim_count WHERE claim_count > 1 RETURN count(p) as count"
+    },
+    {
+        "question": "What is the total claim amount by provider specialty?",
+        "answer": "MATCH (p:Patient)-[:has_provider]->(pr:Provider), (p)-[:has_claim]->(c:Claim) RETURN pr.provider_specialty, sum(c.claim_amount) as total ORDER BY total DESC"
+    },
+    {
+        "question": "Which patients over 65 have emergency claims?",
+        "answer": "MATCH (p:Patient)-[:has_claim]->(c:Claim) WHERE p.patient_age > 65 AND c.claim_type = 'Emergency' RETURN p.patient_id, c.claim_id"
+    },
+    {
+        "question": "How many claims were submitted by phone for retired patients?",
+        "answer": "MATCH (p:Patient)-[:has_claim]->(c:Claim) WHERE p.patient_employment_status = 'Retired' AND c.claim_submission_method = 'Phone' RETURN count(c) as count"
+    },
+    {
+        "question": "What are the top 5 procedure codes by frequency?",
+        "answer": "MATCH (c:Claim)-[:includes_procedure]->(p:Procedure) RETURN p.procedure_code, count(*) as frequency ORDER BY frequency DESC LIMIT 5"
+    },
+    {
+        "question": "Which providers in 'New York' have handled outpatient claims?",
+        "answer": "MATCH (pr:Provider)<-[:has_provider]-(p:Patient)-[:has_claim]->(c:Claim) WHERE pr.provider_location = 'New York' AND c.claim_type = 'Outpatient' RETURN DISTINCT pr.provider_id"
+    },
+    {
+        "question": "How many single patients have a claim amount over $500?",
+        "answer": "MATCH (p:Patient)-[:has_claim]->(c:Claim) WHERE p.patient_marital_status = 'Single' AND c.claim_amount > 500 RETURN count(DISTINCT p) as count"
+    },
+    {
+        "question": "What is the average age of patients with approved claims?",
+        "answer": "MATCH (p:Patient)-[:has_claim]->(c:Claim) WHERE c.claim_status = 'Approved' RETURN avg(p.patient_age) as average_age"
+    },
+    {
+        "question": "Which diagnosis codes appear in claims from General Practice providers?",
+        "answer": "MATCH (pr:Provider)<-[:has_provider]-(p:Patient)-[:has_claim]->(c:Claim)-[:includes_diagnosis]->(d:Diagnosis) WHERE pr.provider_specialty = 'General Practice' RETURN DISTINCT d.diagnosis_code"
+    },
+    {
+        "question": "How many claims were filed in the last 6 months?",
+        "answer": "MATCH (c:Claim) WHERE c.claim_date >= '2024-10-03' RETURN count(c) as count"
+    },
+    {
+        "question": "Which patients have claims with both Cardiology and Orthopedics providers?",
+        "answer": "MATCH (p:Patient)-[:has_provider]->(pr1:Provider {provider_specialty: 'Cardiology'}), (p)-[:has_provider]->(pr2:Provider {provider_specialty: 'Orthopedics'}) RETURN DISTINCT p.patient_id"
+    },
+    {
+        "question": "What is the total claim amount for female patients under 40?",
+        "answer": "MATCH (p:Patient)-[:has_claim]->(c:Claim) WHERE p.patient_gender = 'Female' AND p.patient_age < 40 RETURN sum(c.claim_amount) as total"
+    },
+    {
+        "question": "How many procedures are linked to denied claims?",
+        "answer": "MATCH (c:Claim)-[:includes_procedure]->(p:Procedure) WHERE c.claim_status = 'Denied' RETURN count(p) as count"
+    },
+    {
+        "question": "Which patients have claims submitted on '2024-01-15'?",
+        "answer": "MATCH (p:Patient)-[:has_claim]->(c:Claim) WHERE c.claim_date = '2024-01-15' RETURN p.patient_id, c.claim_id"
+    },
+    {
+        "question": "What is the distribution of claim types for widowed patients?",
+        "answer": "MATCH (p:Patient)-[:has_claim]->(c:Claim) WHERE p.patient_marital_status = 'Widowed' RETURN c.claim_type, count(c) as count"
+    },
+    {
+        "question": "How many students have claims with a Neurology provider?",
+        "answer": "MATCH (p:Patient)-[:has_provider]->(pr:Provider), (p)-[:has_claim]->(c:Claim) WHERE p.patient_employment_status = 'Student' AND pr.provider_specialty = 'Neurology' RETURN count(DISTINCT p) as count"
+    },
+    {
+        "question": "How many female patients are under 30 years old?",
+        "answer": "MATCH (p:Patient) WHERE p.patient_gender = 'Female' AND p.patient_age < 30 RETURN count(p) as count"
+    },
+    {
+        "question": "What is the total claim amount for emergency claims in 2024?",
+        "answer": "MATCH (c:Claim) WHERE c.claim_type = 'Emergency' AND c.claim_date STARTS WITH '2024' RETURN sum(c.claim_amount) as total"
+    },
+    {
+        "question": "Which patients have claims with diagnosis code 'D789'?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim)-[:INCLUDES_DIAGNOSIS]->(d:Diagnosis) WHERE d.diagnosis_code = 'D789' RETURN DISTINCT p.patient_id"
+    },
+    {
+        "question": "How many providers specialize in Orthopedics?",
+        "answer": "MATCH (p:Provider) WHERE p.provider_specialty = 'Orthopedics' RETURN count(p) as count"
+    },
+    {
+        "question": "What is the average claim amount for retired patients?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_employment_status = 'Retired' RETURN avg(c.claim_amount) as average"
+    },
+    {
+        "question": "Which procedure codes are linked to outpatient claims?",
+        "answer": "MATCH (c:Claim)-[:INCLUDES_PROCEDURE]->(p:Procedure) WHERE c.claim_type = 'Outpatient' RETURN DISTINCT p.procedure_code"
+    },
+    {
+        "question": "How many claims were approved for patients over 50?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_age > 50 AND c.claim_status = 'Approved' RETURN count(c) as count"
+    },
+    {
+        "question": "Which patients have claims handled by Neurology providers?",
+        "answer": "MATCH (p:Patient)-[:HAS_PROVIDER]->(pr:Provider), (p)-[:HAS_CLAIM]->(c:Claim) WHERE pr.provider_specialty = 'Neurology' RETURN DISTINCT p.patient_id"
+    },
+    {
+        "question": "How many claims were submitted online?",
+        "answer": "MATCH (c:Claim) WHERE c.claim_submission_method = 'Online' RETURN count(c) as count"
+    },
+    {
+        "question": "How many single patients have claims over $1500?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_marital_status = 'Single' AND c.claim_amount > 1500 RETURN count(DISTINCT p) as count"
+    },
+    {
+        "question": "Which diagnosis codes are most frequent for male patients?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim)-[:INCLUDES_DIAGNOSIS]->(d:Diagnosis) WHERE p.patient_gender = 'Male' RETURN d.diagnosis_code, count(*) as frequency ORDER BY frequency DESC"
+    },
+    {
+        "question": "How many claims are pending for Pediatrics providers?",
+        "answer": "MATCH (p:Patient)-[:HAS_PROVIDER]->(pr:Provider), (p)-[:HAS_CLAIM]->(c:Claim) WHERE pr.provider_specialty = 'Pediatrics' AND c.claim_status = 'Pending' RETURN count(c) as count"
+    },
+    {
+        "question": "What is the average age of patients with inpatient claims?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE c.claim_type = 'Inpatient' RETURN avg(p.patient_age) as average_age"
+    },
+    {
+        "question": "Which patients have more than 2 claims?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WITH p, count(c) as claim_count WHERE claim_count > 2 RETURN p.patient_id, claim_count"
+    },
+    {
+        "question": "How many diagnoses are linked to denied claims?",
+        "answer": "MATCH (c:Claim)-[:INCLUDES_DIAGNOSIS]->(d:Diagnosis) WHERE c.claim_status = 'Denied' RETURN count(d) as count"
+    },
+    {
+        "question": "Which providers have handled claims for married patients?",
+        "answer": "MATCH (p:Patient)-[:HAS_PROVIDER]->(pr:Provider), (p)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_marital_status = 'Married' RETURN DISTINCT pr.provider_id, pr.provider_specialty"
+    },
+    {
+        "question": "What is the total claim amount for claims submitted on '2025-01-01'?",
+        "answer": "MATCH (c:Claim) WHERE c.claim_date = '2025-01-01' RETURN sum(c.claim_amount) as total"
+    },
+    {
+        "question": "How many patients with an income above $75,000 have routine claims?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_income > 75000 AND c.claim_type = 'Routine' RETURN count(DISTINCT p) as count"
+    },
+    {
+        "question": "Which procedure codes are linked to claims from Cardiology providers?",
+        "answer": "MATCH (p:Patient)-[:HAS_PROVIDER]->(pr:Provider), (p)-[:HAS_CLAIM]->(c:Claim)-[:INCLUDES_PROCEDURE]->(p:Procedure) WHERE pr.provider_specialty = 'Cardiology' RETURN DISTINCT p.procedure_code"
+    },
+    {
+        "question": "How many claims were submitted by students in 2025?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_employment_status = 'Student' AND c.claim_date STARTS WITH '2025' RETURN count(c) as count"
+    },
+    {
+        "question": "What is the distribution of claim types for female patients?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_gender = 'Female' RETURN c.claim_type, count(c) as count"
+    },
+    {
+        "question": "Which patients have claims with procedure code 'P456'?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim)-[:INCLUDES_PROCEDURE]->(pr:Procedure) WHERE pr.procedure_code = 'P456' RETURN DISTINCT p.patient_id"
+    },
+    {
+        "question": "How many providers specialize in General Practice and are located in 'Los Angeles'?",
+        "answer": "MATCH (p:Provider) WHERE p.provider_specialty = 'General Practice' AND p.provider_location = 'Los Angeles' RETURN count(p) as count"
+    },
+    {
+        "question": "What is the total claim amount for unemployed patients?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_employment_status = 'Unemployed' RETURN sum(c.claim_amount) as total"
+    },
+    {
+        "question": "Which patients have claims with both a diagnosis and procedure from Orthopedics providers?",
+        "answer": "MATCH (p:Patient)-[:HAS_PROVIDER]->(pr:Provider), (p)-[:HAS_CLAIM]->(c:Claim)-[:INCLUDES_DIAGNOSIS]->(d:Diagnosis), (c)-[:INCLUDES_PROCEDURE]->(prc:Procedure) WHERE pr.provider_specialty = 'Orthopedics' RETURN DISTINCT p.patient_id"
+    },
+    {
+        "question": "How many claims were filed by widowed patients in the last year?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_marital_status = 'Widowed' AND c.claim_date >= '2024-06-16' RETURN count(c) as count"
+    },
+    {
+        "question": "What is the average claim amount for claims linked to diagnosis code 'D321'?",
+        "answer": "MATCH (c:Claim)-[:INCLUDES_DIAGNOSIS]->(d:Diagnosis) WHERE d.diagnosis_code = 'D321' RETURN avg(c.claim_amount) as average"
+    },
+    {
+        "question": "Which providers have handled claims for patients under 18?",
+        "answer": "MATCH (p:Patient)-[:HAS_PROVIDER]->(pr:Provider), (p)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_age < 18 RETURN DISTINCT pr.provider_id, pr.provider_specialty"
+    },
+    {
+        "question": "How many male patients have approved claims?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_gender = 'Male' AND c.claim_status = 'Approved' RETURN count(DISTINCT p) as count"
+    },
+    {
+        "question": "What are the top 4 claim submission methods by claim count?",
+        "answer": "MATCH (c:Claim) RETURN c.claim_submission_method, count(c) as count ORDER BY count DESC LIMIT 4"
+    },
+    {
+        "question": "How many patients are aged between 30 and 50?",
+        "answer": "MATCH (p:Patient) WHERE p.patient_age >= 30 AND p.patient_age <= 50 RETURN count(p) as count"
+    },
+    {
+        "question": "What is the total claim amount for outpatient claims in 2025?",
+        "answer": "MATCH (c:Claim) WHERE c.claim_type = 'Outpatient' AND c.claim_date STARTS WITH '2025' RETURN sum(c.claim_amount) as total"
+    },
+    {
+        "question": "Which patients have claims with diagnosis code 'D123'?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim)-[:INCLUDES_DIAGNOSIS]->(d:Diagnosis) WHERE d.diagnosis_code = 'D123' RETURN DISTINCT p.patient_id"
+    },
+    {
+        "question": "How many providers are located in 'San Francisco'?",
+        "answer": "MATCH (p:Provider) WHERE p.provider_location = 'San Francisco' RETURN count(p) as count"
+    },
+    {
+        "question": "What is the average claim amount for unemployed patients?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_employment_status = 'Unemployed' RETURN avg(c.claim_amount) as average"
+    },
+    {
+        "question": "Which procedure codes are associated with routine claims?",
+        "answer": "MATCH (c:Claim)-[:INCLUDES_PROCEDURE]->(p:Procedure) WHERE c.claim_type = 'Routine' RETURN DISTINCT p.procedure_code"
+    },
+    {
+        "question": "How many claims were denied for patients over 65?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_age > 65 AND c.claim_status = 'Denied' RETURN count(c) as count"
+    },
+    {
+        "question": "Which patients have claims handled by Cardiology providers?",
+        "answer": "MATCH (p:Patient)-[:HAS_PROVIDER]->(pr:Provider), (p)-[:HAS_CLAIM]->(c:Claim) WHERE pr.provider_specialty = 'Cardiology' RETURN DISTINCT p.patient_id"
+    },
+    {
+        "question": "How many claims were submitted by phone?",
+        "answer": "MATCH (c:Claim) WHERE c.claim_submission_method = 'Phone' RETURN count(c) as count"
+    },
+    {
+        "question": "How many widowed patients have claims over $3000?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_marital_status = 'Widowed' AND c.claim_amount > 3000 RETURN count(DISTINCT p) as count"
+    },
+    {
+        "question": "Which diagnosis codes are most common for patients over 50?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim)-[:INCLUDES_DIAGNOSIS]->(d:Diagnosis) WHERE p.patient_age > 50 RETURN d.diagnosis_code, count(*) as frequency ORDER BY frequency DESC"
+    },
+    {
+        "question": "How many claims are approved for General Practice providers?",
+        "answer": "MATCH (p:Patient)-[:HAS_PROVIDER]->(pr:Provider), (p)-[:HAS_CLAIM]->(c:Claim) WHERE pr.provider_specialty = 'General Practice' AND c.claim_status = 'Approved' RETURN count(c) as count"
+    },
+    {
+        "question": "What is the average age of patients with emergency claims?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE c.claim_type = 'Emergency' RETURN avg(p.patient_age) as average_age"
+    },
+    {
+        "question": "Which patients have exactly 2 claims?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WITH p, count(c) as claim_count WHERE claim_count = 2 RETURN p.patient_id, claim_count"
+    },
+    {
+        "question": "How many procedures are linked to pending claims?",
+        "answer": "MATCH (c:Claim)-[:INCLUDES_PROCEDURE]->(p:Procedure) WHERE c.claim_status = 'Pending' RETURN count(p) as count"
+    },
+    {
+        "question": "Which providers have handled claims for single patients?",
+        "answer": "MATCH (p:Patient)-[:HAS_PROVIDER]->(pr:Provider), (p)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_marital_status = 'Single' RETURN DISTINCT pr.provider_id, pr.provider_specialty"
+    },
+    {
+        "question": "What is the total claim amount for claims submitted on '2024-12-25'?",
+        "answer": "MATCH (c:Claim) WHERE c.claim_date = '2024-12-25' RETURN sum(c.claim_amount) as total"
+    },
+    {
+        "question": "How many patients with an income below $40,000 have inpatient claims?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_income < 40000 AND c.claim_type = 'Inpatient' RETURN count(DISTINCT p) as count"
+    },
+    {
+        "question": "Which diagnosis codes are linked to claims from Neurology providers?",
+        "answer": "MATCH (p:Patient)-[:HAS_PROVIDER]->(pr:Provider), (p)-[:HAS_CLAIM]->(c:Claim)-[:INCLUDES_DIAGNOSIS]->(d:Diagnosis) WHERE pr.provider_specialty = 'Neurology' RETURN DISTINCT d.diagnosis_code"
+    },
+    {
+        "question": "How many claims were submitted by retired patients in 2024?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_employment_status = 'Retired' AND c.claim_date STARTS WITH '2024' RETURN count(c) as count"
+    },
+    {
+        "question": "What is the distribution of claim statuses for female patients?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_gender = 'Female' RETURN c.claim_status, count(c) as count"
+    },
+    {
+        "question": "Which patients have claims with procedure code 'P101'?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim)-[:INCLUDES_PROCEDURE]->(pr:Procedure) WHERE pr.procedure_code = 'P101' RETURN DISTINCT p.patient_id"
+    },
+    {
+        "question": "How many providers specialize in Pediatrics and are located in 'Miami'?",
+        "answer": "MATCH (p:Provider) WHERE p.provider_specialty = 'Pediatrics' AND p.provider_location = 'Miami' RETURN count(p) as count"
+    },
+    {
+        "question": "What is the total claim amount for student patients?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_employment_status = 'Student' RETURN sum(c.claim_amount) as total"
+    },
+    {
+        "question": "Which patients have claims with both a diagnosis and procedure from Orthopedics providers?",
+        "answer": "MATCH (p:Patient)-[:HAS_PROVIDER]->(pr:Provider), (p)-[:HAS_CLAIM]->(c:Claim)-[:INCLUDES_DIAGNOSIS]->(d:Diagnosis), (c)-[:INCLUDES_PROCEDURE]->(prc:Procedure) WHERE pr.provider_specialty = 'Orthopedics' RETURN DISTINCT p.patient_id"
+    },
+    {
+        "question": "How many claims were filed by divorced patients in the last 6 months?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_marital_status = 'Divorced' AND c.claim_date >= '2024-12-16' RETURN count(c) as count"
+    },
+    {
+        "question": "What is the average claim amount for claims linked to diagnosis code 'D654'?",
+        "answer": "MATCH (c:Claim)-[:INCLUDES_DIAGNOSIS]->(d:Diagnosis) WHERE d.diagnosis_code = 'D654' RETURN avg(c.claim_amount) as average"
+    },
+    {
+        "question": "Which providers have handled claims for patients over 80?",
+        "answer": "MATCH (p:Patient)-[:HAS_PROVIDER]->(pr:Provider), (p)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_age > 80 RETURN DISTINCT pr.provider_id, pr.provider_specialty"
+    },
+    {
+        "question": "How many male patients have pending claims?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_gender = 'Male' AND c.claim_status = 'Pending' RETURN count(DISTINCT p) as count"
+    },
+    {
+        "question": "What are the top 5 claim types by total claim amount?",
+        "answer": "MATCH (c:Claim) RETURN c.claim_type, sum(c.claim_amount) as total ORDER BY total DESC LIMIT 5"
+    },
+    {
+        "question": "Which patients have claims with both diagnosis code 'D789' and procedure code 'P202'?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim)-[:INCLUDES_DIAGNOSIS]->(d:Diagnosis), (c)-[:INCLUDES_PROCEDURE]->(pr:Procedure) WHERE d.diagnosis_code = 'D789' AND pr.procedure_code = 'P202' RETURN DISTINCT p.patient_id"
+    },
+    {
+        "question": "How many claims were submitted by paper for patients under 40?",
+        "answer": "MATCH (p:Patient)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_age < 40 AND c.claim_submission_method = 'Paper' RETURN count(c) as count"
+    },
+    {
+        "question": "Which providers have handled claims for patients with income over $100,000?",
+        "answer": "MATCH (p:Patient)-[:HAS_PROVIDER]->(pr:Provider), (p)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_income > 100000 RETURN DISTINCT pr.provider_id, pr.provider_specialty"
+    },
+    {
+        "question": "What is the total number of diagnoses for inpatient claims?",
+        "answer": "MATCH (c:Claim)-[:INCLUDES_DIAGNOSIS]->(d:Diagnosis) WHERE c.claim_type = 'Inpatient' RETURN count(d) as count"
+    },
+    {
+        "question": "How many female patients have claims with Orthopedics providers?",
+        "answer": "MATCH (p:Patient)-[:HAS_PROVIDER]->(pr:Provider), (p)-[:HAS_CLAIM]->(c:Claim) WHERE p.patient_gender = 'Female' AND pr.provider_specialty = 'Orthopedics' RETURN count(DISTINCT p) as count"
+    },
+    {
+        "question": "Which patients have no claims?",
+        "answer": "MATCH (p:Patient) WHERE NOT (p)-[:HAS_CLAIM]->(:Claim) RETURN p.patient_id"
+    },
+    {
+        "question": "What is the distribution of provider specialties for approved claims?",
+        "answer": "MATCH (p:Patient)-[:HAS_PROVIDER]->(pr:Provider), (p)-[:HAS_CLAIM]->(c:Claim) WHERE c.claim_status = 'Approved' RETURN pr.provider_specialty, count(c) as count"
+    },
+    {
+        "question": "How many claims were filed on the first day of each month in 2024?",
+        "answer": "MATCH (c:Claim) WHERE c.claim_date ENDS WITH '-01' AND c.claim_date STARTS WITH '2024' RETURN c.claim_date, count(c) as count ORDER BY c.claim_date"
+    },
+    {
+        "question": "Which diagnosis codes are linked to claims with amounts over $5000?",
+        "answer": "MATCH (c:Claim)-[:INCLUDES_DIAGNOSIS]->(d:Diagnosis) WHERE c.claim_amount > 5000 RETURN DISTINCT d.diagnosis_code"
+    },
+    {
+        "question": "How many patients have claims with both Neurology and Pediatrics providers?",
+        "answer": "MATCH (p:Patient)-[:HAS_PROVIDER]->(pr1:Provider {provider_specialty: 'Neurology'}), (p)-[:HAS_PROVIDER]->(pr2:Provider {provider_specialty: 'Pediatrics'}) RETURN count(DISTINCT p) as count"
+    }
+]
