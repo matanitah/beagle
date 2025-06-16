@@ -1,0 +1,5 @@
+neo4j
+numpy
+pandas
+tqdm
+python-dotenv
