@@ -166,6 +166,7 @@ MATCH (pr:Provider) RETURN pr.provider_name"""),
 
     def run_benchmark(self, max_questions: int = None):
         """Run the agent on the benchmark questions."""
+        output = ""
         # Load benchmark
         with open(self.benchmark_path, 'r') as f:
             benchmark = json.load(f)
@@ -180,8 +181,11 @@ MATCH (pr:Provider) RETURN pr.provider_name"""),
         
         for i, qa_pair in enumerate(benchmark, 1):
             print(f"\n--- Question {i}/{total_questions} ---")
+            output += f"\n--- Question {i}/{total_questions} ---"
             print(f"Question: {qa_pair['question']}")
+            output += f"Question: {qa_pair['question']} \n"
             print(f"Ground truth: {qa_pair['answer']}")
+            output += f"Ground truth: {qa_pair['answer']} \n"
             
             # Create state for this question
             state = AgentState(
@@ -210,16 +214,77 @@ MATCH (pr:Provider) RETURN pr.provider_name"""),
             self.best_performance = overall_performance
             self._save_state()
         
-        return overall_performance
+        return output, overall_performance
+
+    def diagnose_problem(self, output):
+        # Create diagnostic prompt
+        diagnostic_prompt = f"""
+            You are a Neo4j Cypher expert. Analyze the following benchmark run output and identify the key problems 
+            with how the queries are being generated. Focus on patterns of errors and areas for improvement.
+
+            Benchmark output:
+            {output}
+
+            Provide a concise diagnosis of the main issues in query generation.
+            """
+
+        # Get diagnosis from LLM
+        response = self.llm.invoke(diagnostic_prompt)
+        
+        print("\n=== DIAGNOSIS ===")
+        print(response)
+        
+        return response
+    
+    def improve_workflow(self, diagnosis):
+        # Create improvement prompt
+        improvement_prompt = f"""
+            You are a Neo4j Cypher expert. Based on the following diagnosis of query generation issues,
+            suggest a specific improvement to the workflow that would address these problems.
+            
+            Diagnosis:
+            {diagnosis}
+            
+            Current workflow stages:
+            {self.workflow}
+            
+            Suggest a new workflow stage that would help improve query accuracy. Format as:
+            STAGE NAME: <name>
+            DESCRIPTION: <what the stage does>
+            PROMPT: <prompt template for the stage>
+            """
+            
+        # Get improvement suggestion from LLM
+        response = self.llm.invoke(improvement_prompt).content
+        
+        print("\n=== SUGGESTED IMPROVEMENT ===")
+        print(response)
+        
+        # Parse response to extract stage details
+        try:
+            lines = response.split('\n')
+            stage_name = next(l for l in lines if l.startswith('STAGE NAME:')).split(':')[1].strip()
+            stage_prompt = next(l for l in lines if l.startswith('PROMPT:')).split(':')[1].strip()
+            
+            # Create temporary workflow with new stage
+            temp_workflow = self.workflow.copy()
+            temp_workflow.add_stage(stage_name, stage_prompt)
+
+            return temp_workflow
+        except Exception as e:
+            print(f"Error parsing workflow improvement: {e}")
+            
+        
+        
 
     def improve(self, generations=10):
         """Run improvement iterations."""
         for generation in range(generations):
             print(f"\n=== Generation {generation + 1}/{generations} ===")
-            performance = self.run_benchmark(max_questions=5)  # Start with small subset
+            output, performance = self.run_benchmark(max_questions=5)  # Start with small subset
             
-            # TODO: Add workflow mutation logic here
-            # For now, just track performance
+            diagnosis = self.diagnose_problem(output)
+            new_workflow = self.improve_workflow(diagnosis)
             
         print(f"\nBest performance achieved: {self.best_performance:.2%}")
 
