@@ -261,21 +261,18 @@ MATCH (pr:Provider) RETURN pr.provider_name"""),
         print(response)
         
         # Parse response to extract stage details
-        try:
-            lines = response.split('\n')
-            stage_name = next(l for l in lines if l.startswith('STAGE NAME:')).split(':')[1].strip()
-            stage_prompt = next(l for l in lines if l.startswith('PROMPT:')).split(':')[1].strip()
+        # try:
+        #     lines = response.split('\n')
+        #     stage_name = next(l for l in lines if l.startswith('STAGE NAME:')).split(':')[1].strip()
+        #     stage_prompt = next(l for l in lines if l.startswith('PROMPT:')).split(':')[1].strip()
             
-            # Create temporary workflow with new stage
-            temp_workflow = self.workflow.copy()
-            temp_workflow.add_stage(stage_name, stage_prompt)
+        #     # Create temporary workflow with new stage
+        #     temp_workflow = self.workflow.copy()
+        #     temp_workflow.add_stage(stage_name, stage_prompt)
 
-            return temp_workflow
-        except Exception as e:
-            print(f"Error parsing workflow improvement: {e}")
-            
-        
-        
+        #     return temp_workflow
+        # except Exception as e:
+        #     print(f"Error parsing workflow improvement: {e}")
 
     def improve(self, generations=10):
         """Run improvement iterations."""

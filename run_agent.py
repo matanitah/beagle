@@ -16,7 +16,7 @@ def main():
     
     try:
         # Run improvement process
-        agent.improve(generations=2)
+        agent.improve(generations=1)
                     
     finally:
         agent.close()
